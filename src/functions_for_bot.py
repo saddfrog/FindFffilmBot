@@ -19,12 +19,12 @@ def random_film():
             ind_reader += 1
     print(film)
     return film
-
-# random_film()
+def del_prev_buttons(call):
+    bot.edit_message_reply_markup(call.message.chat.id, message_id = call.message.message_id, reply_markup = '')
 
 def main_b():
     buttons = types.InlineKeyboardMarkup()   
-    buttons.add(types.InlineKeyboardButton(text='Случайный фильм', callback_data='random_film'), types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose'))
+    buttons.add(types.InlineKeyboardButton(text='Случайный фильм', callback_data='random_film'), types.InlineKeyboardButton(text='⛔️Выбор по категории', callback_data='user_choose'))
     return buttons
 
 def random_film_b():
