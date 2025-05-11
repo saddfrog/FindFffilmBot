@@ -10,6 +10,7 @@ callback_map = {}
 user_filters = {}  # chat_id: { 'year': '1990', 'genre': 'комедия', ... }
 
 years = ['1980', '1990', '2000', '2010', '2020']
+time = ['0', '60', '120', '180']
 ages = ['0+', '6+', '12+', '16+', '18+']
 
 genre = ['аниме', 'биография', 'боевик', 'вестерн', 'военный', 'детектив', 'драма', 'история', 'комедия', 
@@ -44,12 +45,14 @@ def format_filter_summary(filters):
     country = filters.get('country', "всё")
     age = filters.get('age', "всё")
     actor = filters.get('actor', "всё")
+    time = filters.get('time', "всё")
     return (f"🎯 *Текущие фильтры:*\n"
             f"Год выпуска: {year}\n"
             f"Жанр: {genre}\n"
             f"Страна: {country}\n"
             f"Возрастной рейтинг: {age}\n"
-            f"Актёр: {actor}")
+            f"Актёр: {actor}\n"
+            f"Хронометраж фильма: {time}")
 
 
 buttons_per_page = 15  # 5 строки по 3 кнопок
@@ -59,83 +62,47 @@ def filter_menu_b():
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("Год выпуска", callback_data="choose_year"),
-        types.InlineKeyboardButton("Жанр", callback_data="choose_genre"),
         types.InlineKeyboardButton("Страна", callback_data="choose_country"),
+        types.InlineKeyboardButton("Рейтинг", callback_data="choose_rating"),
+
     )
     markup.add(
-        types.InlineKeyboardButton("Возрастной рейтинг", callback_data="choose_age"),
         types.InlineKeyboardButton("Актёр", callback_data="choose_actor"),
+        types.InlineKeyboardButton("Хронометраж", callback_data="choose_time"),
+        types.InlineKeyboardButton("Жанр", callback_data="choose_genre"),
+
     )
     markup.add(
         types.InlineKeyboardButton("🎬 Показать фильмы", callback_data="show_filtered"),
         types.InlineKeyboardButton("🔄 Сбросить фильтры", callback_data='reset_filters'),
     )
     markup.add(
-        types.InlineKeyboardButton("🏠 Главное меню", callback_data="main")
+        types.InlineKeyboardButton("🏠 Главное меню", callback_data="start")
     )
     return markup
-
-
-# Функции фильтрации (с учетом структуры БД)
-def filter_by_year(year):
-    films = []
-    with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if year in row['year']:
-                films.append(row)
-    return films
-
-def filter_by_country(country):
-    films = []
-    with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if country in row['countries']:
-                films.append(row)
-    return films
-
-def filter_by_age(age_limit):
-    films = []
-    with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if age_limit in row['age_rating']:
-                films.append(row)
-    return films
-
-def filter_by_actor(actor):
-    films = []
-    with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if actor in row['actors']:
-                films.append(row)
-    return films
-
-def filter_by_genre(genre):
-    films = []
-    with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if genre in row['genres']:
-                films.append(row)
-    return films
-
-# Функция для отправки отфильтрованных фильмов
-def send_filtered_films(chat_id, films):
-    if films:
-        for film in films:
-            bot.send_photo(chat_id, photo=film['poster_url'], caption=f"🎬*Ваш фильм*: `{film['title_ru']}`\n\n*Описание фильма*: {film['description']}\n\n *Возрастной рейтинг*: {film['age_rating']}", parse_mode="MARKDOWN", reply_markup=random_film_b())
-    else:
-        bot.send_message(chat_id=chat_id, text="Не найдено фильмов по выбранному фильтру. Попробуйте другой фильтр.")
-    
+  
 def filtred_films(chat_id, results):
     film = random.choice(results)
-    bot.send_photo(chat_id, photo=film['poster_url'], 
-                   caption=f"🎬*Ваш фильм*: `{film['title_ru']}`\n\n*Описание фильма*: {film['description']}\n\n *Возрастной рейтинг*: {film['age_rating']}", 
-                   parse_mode="MARKDOWN", reply_markup=filter_menu_b())
+    film_desc = film['description']
+    if len(film_desc.split()) > 80 or len(film_desc) > 500:
+        film_desc = ' '.join(film_desc.split()[:50])
+    caption_f = (
+    f"🎬 *Ваш фильм*: `{film['title_ru']}` 🎞 `{film['title_original']}`\n"
+    f"📝 *Описание*: {film_desc}\n\n"
+    f"⭐️ *КП*: {film['rating_kp']} | 🌟 *IMDb*: {film['rating_imdb']} | 🔞 *Возраст*: {film['age_rating']}\n"
+    f"🎭 *Актеры*: {film['actors']}\n"
+    f"🎬 *Режиссеры*: {film['directors']} | 🌍 *Страна*: {film['countries']}\n"
+    f"📅 *Год*: {film['year']} | ⏳ *Хронометраж*: {film['film_length']} мин\n"
+    f"🎭 *Жанры*: {film['genres']}"
+    )
+    print(caption_f)
+    try:
+        bot.send_photo(chat_id,photo=film['poster_url'], caption=caption_f, parse_mode="MARKDOWN")
+        # summary = format_filter_summary(user_filters[chat_id])        
+        # bot.send_message(chat_id, text=f"{summary}", parse_mode="MARKDOWN", reply_markup=filter_menu_b())
 
+    except Exception as e:
+        print(f"Ошибка при отправке фото: {e}")
 
 def short_callback(value: str) -> str:
     # Генерируем короткий уникальный ключ (12 символов)
@@ -157,19 +124,14 @@ def random_film():
 def del_prev_buttons(call):
     bot.edit_message_reply_markup(call.message.chat.id, message_id = call.message.message_id, reply_markup = '')
 
-def main_b():
+def start_b():
     buttons = types.InlineKeyboardMarkup()   
-    buttons.add(types.InlineKeyboardButton(text='Случайный фильм', callback_data='random_film'), 
-                types.InlineKeyboardButton(text='TESTING: Выбор по категории', callback_data='user_choose'))
+    buttons.add(types.InlineKeyboardButton(text='От разработчиков', callback_data='from_developers'), 
+                types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose'))
                 # types.InlineKeyboardButton(text='Подборки', callback_data='selection_menu'))
     return buttons
 
-def random_film_b():
-    buttons = types.InlineKeyboardMarkup()   
-    buttons.add( types.InlineKeyboardButton(text='Выбрать другой фильм', callback_data='random_film'), 
-                types.InlineKeyboardButton(text='Главное меню', callback_data='main'))
-    return buttons  
 def user_choose_b():
     buttons = types.InlineKeyboardMarkup()   
-    buttons.add(types.InlineKeyboardButton(text='Главное меню', callback_data='main'))
+    buttons.add(types.InlineKeyboardButton(text='Главное меню', callback_data='start'))
     return buttons    

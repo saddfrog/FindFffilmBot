@@ -3,7 +3,9 @@ from functions_for_bot import *
 @bot.message_handler(commands=['start'])
 def start_message(message):
     bot.send_message(message.from_user.id, 
-                     "Привет)\nБот предназначен для подбора фильма по категориям", reply_markup=main_b())
+                     "Привет)\nЭтот бот поможет вам найти фильмы, которые соответствуют вашим предпочтениям и выведет подробную информацию о них.",
+                     reply_markup=start_b())
+    
 @bot.message_handler(commands=['help'])
 def start_message(message):
     bot.send_message(message.from_user.id, "Что бы начать работу с ботом введите команду /start")
@@ -18,24 +20,22 @@ def start_message(message):
 
 @bot.callback_query_handler(func=lambda call: True)    
 def call_back(call):
-    del_prev_buttons(call)
-    
-    if call.data == 'main':
-        # del_prev_buttons(call)
-        bot.send_message(chat_id=call.message.chat.id, text="тестим кнопки\n"
-       "Выберите, каким способом подобрать фильм", reply_markup=main_b())      
+    # del_prev_buttons(call)
+    bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-    if call.data in callback_map:
-        real_value = callback_map[call.data]
-        bot.send_message(call.message.chat.id, f"Ты выбрал: {real_value}")
-
-    if call.data == 'random_film':   
-        film = random_film() 
+    if call.data == 'start':
         # del_prev_buttons(call)
-        bot.send_photo(chat_id=call.message.chat.id,photo=film[6] ,caption=f"🎬*Ваш фильм*: `{film[1]}`\n\n*Описание фильма*: {film[7]}\n\n *Возрастной рейтинг*: {film[15]}",parse_mode="MARKDOWN", reply_markup=random_film_b())
-   
+        bot.send_message(chat_id=call.message.chat.id, text="Начальное меню", reply_markup=start_b())    
+
+
+    if call.data == 'from_developers':
+        # del_prev_buttons(call)
+        bot.send_message(chat_id=call.message.chat.id, text="Спасибо за использование нашего телеграм-бота для подбора фильмов! Мы надеемся, что он поможет вам хорошо провести время!\n"
+       "Перейти к выбору фильма", 
+       reply_markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose')))      
+
     if call.data == 'user_choose':
-        user_filters[call.message.chat.id] = {}  # сброс
+        # user_filters[call.message.chat.id] = {}  # сброс
         bot.send_message(call.message.chat.id, "Выберите фильтр:", reply_markup=filter_menu_b())
 
     if call.data == 'reset_filters':
@@ -44,6 +44,20 @@ def call_back(call):
 
         bot.send_message(text="🧹 Все фильтры сброшены.",chat_id=call.message.chat.id, reply_markup=filter_menu_b())
 
+    if call.data == 'choose_rating':
+        markup = types.InlineKeyboardMarkup()
+        decades = {
+            '1980': '1980–1989',
+            '1990': '1990–1999',
+            '2000': '2000–2009',
+            '2010': '2010–2019',
+            '2020': '2020–2029'
+        }
+        for key, label in decades.items():
+            markup.add(types.InlineKeyboardButton(label, callback_data=f'set_year_{key}'))
+        bot.send_message(call.message.chat.id, "Выберите десятилетие выпуска:", reply_markup=markup)
+
+    
     if call.data == 'choose_year':
         markup = types.InlineKeyboardMarkup()
         decades = {
@@ -56,6 +70,20 @@ def call_back(call):
         for key, label in decades.items():
             markup.add(types.InlineKeyboardButton(label, callback_data=f'set_year_{key}'))
         bot.send_message(call.message.chat.id, "Выберите десятилетие выпуска:", reply_markup=markup)
+
+    if call.data == 'choose_time':
+        markup = types.InlineKeyboardMarkup()
+        decades = {
+            #'0': 'меньше часа', у нас в БД пока таких нет :)
+            '60': 'от часа до двух',
+            '120': 'более двух часов',
+            '180': 'более трех часов',
+        }
+        for key, label in decades.items():
+            markup.add(types.InlineKeyboardButton(label, callback_data=f'set_time_{key}'))
+        markup.add(types.InlineKeyboardButton("ничего", callback_data=f'set_time_none'))
+        bot.send_message(call.message.chat.id, "Выберите хронометраж фильма:", reply_markup=markup)
+
 
     if call.data == 'choose_genre':
         markup = types.InlineKeyboardMarkup()
@@ -103,8 +131,20 @@ def call_back(call):
         year = call.data.split('_')[-1]
         user_filters.setdefault(call.message.chat.id, {})['year'] = year
         summary = format_filter_summary(user_filters[call.message.chat.id])
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         bot.send_message(call.message.chat.id, f"✅ Год выбран.\n\n{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
+
+    if call.data.startswith('set_time_'):
+        year = call.data.split('_')[-1]
+        if year == 'none':
+            user_filters[call.message.chat.id].pop('time', None)
+            year = 'не'
+        else:
+            user_filters.setdefault(call.message.chat.id, {})['time'] = year
+            year = ''
+        summary = format_filter_summary(user_filters[call.message.chat.id]) 
+        print(user_filters[call.message.chat.id])      
+        bot.send_message(call.message.chat.id, f"✅ Хронометраж {year} выбран.\n\n{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
+
 
     if call.data.startswith('set_genre_'):
         g = call.data.split('_', 2)[2]
@@ -114,7 +154,6 @@ def call_back(call):
         else:
             user_filters.setdefault(call.message.chat.id, {})['genre'] = g
         summary = format_filter_summary(user_filters[call.message.chat.id])
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         bot.send_message(call.message.chat.id, f"✅ Жанр: {g} выбран.\n\n{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
 
     if call.data.startswith('set_country_'):
@@ -125,8 +164,6 @@ def call_back(call):
         else:
             user_filters.setdefault(call.message.chat.id, {})['country'] = c
         summary = format_filter_summary(user_filters[call.message.chat.id]) 
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id) 
-
         bot.send_message(call.message.chat.id, f"✅ Страна: {c} выбрана.\n\n{summary}",parse_mode='Markdown', reply_markup=filter_menu_b())
         print(user_filters[call.message.chat.id])
 
@@ -145,7 +182,6 @@ def call_back(call):
         else:
             user_filters.setdefault(call.message.chat.id, {})['actor'] = a
         summary = format_filter_summary(user_filters[call.message.chat.id])
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         bot.send_message(call.message.chat.id, f"✅ Актёр: {a} выбран.\n\n{summary}",parse_mode='Markdown', reply_markup=filter_menu_b())
 
     if call.data == 'show_filtered':
@@ -160,6 +196,11 @@ def call_back(call):
                     end = start + 9
                     if not (start <= int(row['year']) <= end):
                         continue
+                if 'time' in filters:
+                    start = int(filters['time'])
+                    end = start + 60
+                    if not (start <= int(row['film_length'].split(' ')[0]) <= end):
+                        continue
 
                 if 'genre' in filters and filters['genre'] not in row['genres']:
                     continue
@@ -169,10 +210,28 @@ def call_back(call):
                     continue
                 if 'actor' in filters and filters['actor'] not in row['actors']:
                     continue
+                '''
+                жанр +
+                страна +
+                дата выпуска +
+                актеры +
+
+                популярность -
+                компания -
+                оригинальный язык ---
+                оценка -
+                режисеры -
+                ___
+                возрастное ограничение +
+                время фильма (2+ часов, 60- минут, 60-120 мин) +-
+
+                '''
                 results.append(row)
         if not results:
             bot.send_message(call.message.chat.id, "Ничего не найдено по заданным фильтрам 😢", reply_markup=filter_menu_b())
         else:
             filtred_films(call.message.chat.id, results)
+            summary = format_filter_summary(user_filters[call.message.chat.id])
+            bot.send_message(call.message.chat.id, text=f"{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
 
 bot.polling(none_stop=True, interval=0)
