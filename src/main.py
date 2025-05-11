@@ -30,7 +30,7 @@ def call_back(call):
         reply_markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose')))      
 
     if call.data == 'user_choose':
-        # user_filters[call.message.chat.id] = {}  # сброс
+        user_filters[call.message.chat.id] = {}  # сброс
         bot.send_message(call.message.chat.id, "Выберите фильтр:", reply_markup=filter_menu_b())
 
     if call.data == 'reset_filters':
@@ -42,15 +42,14 @@ def call_back(call):
     if call.data == 'choose_rating':
         markup = types.InlineKeyboardMarkup()
         decades = {
-            '1980': '1980–1989',
-            '1990': '1990–1999',
-            '2000': '2000–2009',
-            '2010': '2010–2019',
-            '2020': '2020–2029'
+            # '5': '5 и ниже',
+            '7': '7.0 - 7.9',
+            '8': '8.0 - 8.9',
+            '9': '9+',
         }
         for key, label in decades.items():
-            markup.add(types.InlineKeyboardButton(label, callback_data=f'set_year_{key}'))
-        bot.send_message(call.message.chat.id, "Выберите десятилетие выпуска:", reply_markup=markup)
+            markup.add(types.InlineKeyboardButton(label, callback_data=f'set_rating_{key}'))
+        bot.send_message(call.message.chat.id, "Выберите рейтинг:", reply_markup=markup)
 
     
     if call.data == 'choose_year':
@@ -121,6 +120,12 @@ def call_back(call):
         markup.add(types.InlineKeyboardButton("ничего", callback_data=f'set_actor_none'))
         bot.send_message(call.message.chat.id, "Выберите актёра:", reply_markup=markup)
         
+    if call.data.startswith('set_rating_'):
+        year = call.data.split('_')[-1]
+        user_filters.setdefault(call.message.chat.id, {})['rating'] = year
+        summary = format_filter_summary(user_filters[call.message.chat.id])
+        bot.send_message(call.message.chat.id, f"✅ Рейтинг выбран.\n\n{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
+
     if call.data.startswith('set_year_'):
         year = call.data.split('_')[-1]
         user_filters.setdefault(call.message.chat.id, {})['year'] = year
@@ -177,6 +182,18 @@ def call_back(call):
         summary = format_filter_summary(user_filters[call.message.chat.id])
         bot.send_message(call.message.chat.id, f"✅ Актёр: {a} выбран.\n\n{summary}",parse_mode='Markdown', reply_markup=filter_menu_b())
 
+
+    if call.data == 'random_film':
+        results = []
+
+        with open('src/kinopoisk_top250_full.csv', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                results.append(row)
+            
+        filtred_films(call.message.chat.id, results)
+        bot.send_message(call.message.chat.id, text=f"~", reply_markup=random_menu_b())    
+
     if call.data == 'show_filtered':
         filters = user_filters.get(call.message.chat.id, {})
         results = []
@@ -195,6 +212,18 @@ def call_back(call):
                     end = start + 60
                     if not (start <= int(row['film_length'].split(' ')[0]) <= end):
                         continue
+                if 'rating' in filters:
+                    # if int(filters['rating']) == 5:
+                    #     if not (0 <= int(row['rating_kp'] )):
+                    #         continue          
+                    if  int(filters['rating']) in [8, 7]:
+                       if (not (float(filters['rating']) <= float(row['rating_kp'] ) <= float(row['rating_kp'] ) + 0.9) 
+                           and not (float(filters['rating']) <= float(row['rating_imdb'] ) <= float(row['rating_kp'] ) + 0.9)):
+                            continue                                   
+                    if  int(filters['rating']) == 9:
+                       if (not (float(filters['rating']) <= float(row['rating_kp'] )) 
+                           and not (float(filters['rating']) <= float(row['rating_imdb'] ))):
+                            continue                     
 
                 if 'genre' in filters and filters['genre'] not in row['genres']:
                     continue
