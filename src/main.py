@@ -17,22 +17,17 @@ def start_message(message):
 def start_message(message):
         bot.send_message(message.from_user.id, "К сожалению, я не умею читать, но я уверен, что там что-то хорошее😜")
 
-
 @bot.callback_query_handler(func=lambda call: True)    
 def call_back(call):
-    # del_prev_buttons(call)
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     if call.data == 'start':
-        # del_prev_buttons(call)
-        bot.send_message(chat_id=call.message.chat.id, text="Начальное меню", reply_markup=start_b())    
-
+        bot.send_message(chat_id=call.message.chat.id, text="Начальное меню", reply_markup=start_b())   
 
     if call.data == 'from_developers':
-        # del_prev_buttons(call)
-        bot.send_message(chat_id=call.message.chat.id, text="Спасибо за использование нашего телеграм-бота для подбора фильмов! Мы надеемся, что он поможет вам хорошо провести время!\n"
-       "Перейти к выбору фильма", 
-       reply_markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose')))      
+        bot.send_message(chat_id=call.message.chat.id, text="Спасибо за использование нашего телеграм-бота для подбора фильмов! Мы надеемся, что он поможет вам хорошо провести время!\n")
+        bot.send_message(chat_id=call.message.chat.id, text="Перейти к выбору фильма", 
+        reply_markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(text='Выбор по категории', callback_data='user_choose')))      
 
     if call.data == 'user_choose':
         # user_filters[call.message.chat.id] = {}  # сброс
@@ -124,7 +119,6 @@ def call_back(call):
                     buttons.append(types.InlineKeyboardButton(actors[i + j], callback_data=f'set_actor_{actors[i + j]}'))            
             markup.add(*buttons)
         markup.add(types.InlineKeyboardButton("ничего", callback_data=f'set_actor_none'))
-
         bot.send_message(call.message.chat.id, "Выберите актёра:", reply_markup=markup)
         
     if call.data.startswith('set_year_'):
@@ -144,7 +138,6 @@ def call_back(call):
         summary = format_filter_summary(user_filters[call.message.chat.id]) 
         print(user_filters[call.message.chat.id])      
         bot.send_message(call.message.chat.id, f"✅ Хронометраж {year} выбран.\n\n{summary}", parse_mode='Markdown', reply_markup=filter_menu_b())
-
 
     if call.data.startswith('set_genre_'):
         g = call.data.split('_', 2)[2]
@@ -196,6 +189,7 @@ def call_back(call):
                     end = start + 9
                     if not (start <= int(row['year']) <= end):
                         continue
+                    
                 if 'time' in filters:
                     start = int(filters['time'])
                     end = start + 60
@@ -215,16 +209,15 @@ def call_back(call):
                 страна +
                 дата выпуска +
                 актеры +
+                оценка +
+                режисеры +
 
                 популярность -
                 компания -
                 оригинальный язык ---
-                оценка -
-                режисеры -
                 ___
                 возрастное ограничение +
                 время фильма (2+ часов, 60- минут, 60-120 мин) +-
-
                 '''
                 results.append(row)
         if not results:
